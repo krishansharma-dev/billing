@@ -269,6 +269,50 @@ export interface Database {
           updated_at?: string
         }
       }
+      ledger_entries: {
+        Row: {
+          id: string
+          user_id: string
+          entity_type: 'customer' | 'vendor'
+          entity_id: string | null
+          entity_name: string
+          transaction_type: 'debit' | 'credit'
+          amount: number
+          description: string | null
+          reference_id: string | null
+          reference_type: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          entity_type: 'customer' | 'vendor'
+          entity_id?: string | null
+          entity_name: string
+          transaction_type: 'debit' | 'credit'
+          amount: number
+          description?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          entity_type?: 'customer' | 'vendor'
+          entity_id?: string | null
+          entity_name?: string
+          transaction_type?: 'debit' | 'credit'
+          amount?: number
+          description?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {}
     Functions: {
