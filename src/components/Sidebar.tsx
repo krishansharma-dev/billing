@@ -9,9 +9,11 @@ import {
   FileText, 
   BarChart3, 
   Settings,
-  LogOut
+  LogOut,
+  Users,
+  Briefcase,
+  Box
 } from "lucide-react";
-
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -20,7 +22,9 @@ const menuItems = [
   { id: "stock", label: "Stock", icon: Package, path: "/stock" },
   { id: "ledger", label: "Ledger", icon: FileText, path: "/ledger" },
   { id: "reports", label: "Reports", icon: BarChart3, path: "/reports" },
-  { id: "customer", label: "Customer", icon: BarChart3, path: "/customer" },
+  { id: "customer", label: "Customer", icon: Users, path: "/customer" },
+  { id: "vendor", label: "Vendor", icon: Briefcase, path: "/vendor" },
+  { id: "product", label: "Product", icon: Box, path: "/product"},
   { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
 ];
 
