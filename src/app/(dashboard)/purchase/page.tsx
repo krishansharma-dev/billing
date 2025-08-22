@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -11,246 +10,208 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Toaster, toast } from 'sonner';
 import { createClient } from '@/lib/client';
 import { Database } from '@/lib/types';
-import { Search, Edit, Trash2, Plus, X, Receipt, DollarSign, Calendar, CreditCard, Banknote, Clock, CheckCircle, TrendingUp } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, X, Receipt, DollarSign, Calendar, Clock, CheckCircle, TrendingUp } from 'lucide-react';
 
-type Sale = Database['public']['Tables']['sales']['Row'];
-type Customer = Database['public']['Tables']['customers']['Row'];
+type Purchase = Database['public']['Tables']['purchases']['Row'];
+type Vendor = Database['public']['Tables']['vendors']['Row'];
 
-interface SalesStats {
-  totalSales: number;
-  todaySales: number;
+interface PurchasesStats {
+  totalPurchases: number;
+  todayPurchases: number;
   pendingAmount: number;
-  cashSales: number;
-  creditSales: number;
 }
 
-export default function SalesPage() {
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
+export default function PurchasesPage() {
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [filteredPurchases, setFilteredPurchases] = useState<Purchase[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<SalesStats>({
-    totalSales: 0,
-    todaySales: 0,
+  const [stats, setStats] = useState<PurchasesStats>({
+    totalPurchases: 0,
+    todayPurchases: 0,
     pendingAmount: 0,
-    cashSales: 0,
-    creditSales: 0,
   });
-  const [formData, setFormData] = useState<Partial<Sale>>({
-    customer_id: '',
-    customer_name: '',
-    sale_date: new Date().toISOString().split('T')[0],
+  const [formData, setFormData] = useState<Partial<Purchase>>({
+    vendor_id: '',
+    vendor_name: '',
+    purchase_date: new Date().toISOString().split('T')[0],
     subtotal: 0,
     tax: 0,
     total: 0,
-    payment_type: 'cash',
-    status: 'paid',
+    status: 'pending',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+
   const supabase = createClient();
   const router = useRouter();
 
   // Fetch data on mount
   useEffect(() => {
-    fetchSales();
-    fetchCustomers();
+    fetchPurchases();
+    fetchVendors();
   }, []);
 
-  // Calculate stats whenever sales change
+  // Calculate stats whenever purchases change
   useEffect(() => {
     calculateStats();
-  }, [sales]);
+  }, [purchases]);
 
-  // Filter sales based on search term and filters
+  // Filter purchases based on search term and filters
   useEffect(() => {
-    let filtered = sales;
-
+    let filtered = purchases;
     // Search filter
     if (searchTerm.trim()) {
-      filtered = filtered.filter(sale => 
-        sale.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sale.id.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(purchase =>
+        purchase.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        purchase.id.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-
     // Status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(sale => sale.status === statusFilter);
+      filtered = filtered.filter(purchase => purchase.status === statusFilter);
     }
-
-    // Payment filter
-    if (paymentFilter !== 'all') {
-      filtered = filtered.filter(sale => sale.payment_type === paymentFilter);
-    }
-
     // Date filter
     if (dateFilter !== 'all') {
       const today = new Date();
       const filterDate = new Date(today);
-      
       switch (dateFilter) {
         case 'today':
-          filtered = filtered.filter(sale => 
-            new Date(sale.sale_date).toDateString() === today.toDateString()
+          filtered = filtered.filter(purchase =>
+            new Date(purchase.purchase_date).toDateString() === today.toDateString()
           );
           break;
         case 'week':
           filterDate.setDate(today.getDate() - 7);
-          filtered = filtered.filter(sale => 
-            new Date(sale.sale_date) >= filterDate
+          filtered = filtered.filter(purchase =>
+            new Date(purchase.purchase_date) >= filterDate
           );
           break;
         case 'month':
           filterDate.setMonth(today.getMonth() - 1);
-          filtered = filtered.filter(sale => 
-            new Date(sale.sale_date) >= filterDate
+          filtered = filtered.filter(purchase =>
+            new Date(purchase.purchase_date) >= filterDate
           );
           break;
       }
     }
-
-    setFilteredSales(filtered);
-  }, [sales, searchTerm, statusFilter, paymentFilter, dateFilter]);
-
-  // Fetch sales for the authenticated user
-  async function fetchSales() {
-    setLoading(true);
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      toast.error('Authentication Error', {
-        description: 'Please log in to view sales.',
-      });
-      router.push('/login');
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('sales')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast.error('Failed to Fetch Sales', {
-        description: error.message,
-      });
-    } else {
-      setSales(data || []);
-    }
-    
-    setLoading(false);
-  }
-
-  // Fetch customers for selection
-  async function fetchCustomers() {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return;
-
-    const { data, error } = await supabase
-      .from('customers')
-      .select('*')
-      .order('name');
-
-    if (!error) {
-      setCustomers(data || []);
-    }
-  }
-
-  // Calculate sales statistics
-  function calculateStats() {
-    const today = new Date().toDateString();
-    
-    const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0);
-    const todaySales = sales
-      .filter(sale => new Date(sale.sale_date).toDateString() === today)
-      .reduce((sum, sale) => sum + sale.total, 0);
-    const pendingAmount = sales
-      .filter(sale => sale.status === 'pending')
-      .reduce((sum, sale) => sum + sale.total, 0);
-    const cashSales = sales
-      .filter(sale => sale.payment_type === 'cash')
-      .reduce((sum, sale) => sum + sale.total, 0);
-    const creditSales = sales
-      .filter(sale => sale.payment_type === 'credit')
-      .reduce((sum, sale) => sum + sale.total, 0);
-
-    setStats({
-      totalSales,
-      todaySales,
-      pendingAmount,
-      cashSales,
-      creditSales,
-    });
-  }
-
-  // Handle customer selection
-  function handleCustomerSelect(customerId: string) {
-    const selectedCustomer = customers.find(c => c.id === customerId);
-    if (selectedCustomer) {
-      setFormData({
-        ...formData,
-        customer_id: customerId,
-        customer_name: selectedCustomer.name,
-      });
-    } else {
-      setFormData({
-        ...formData,
-        customer_id: '',
-        customer_name: '',
-      });
-    }
-  }
+    setFilteredPurchases(filtered);
+  }, [purchases, searchTerm, statusFilter, dateFilter]);
 
   // Calculate total when subtotal or tax changes
   useEffect(() => {
     const subtotal = Number(formData.subtotal) || 0;
     const tax = Number(formData.tax) || 0;
     const total = subtotal + tax;
-    
     if (formData.total !== total) {
       setFormData(prev => ({ ...prev, total }));
     }
   }, [formData.subtotal, formData.tax]);
 
+  // Fetch purchases for the authenticated user
+  async function fetchPurchases() {
+    setLoading(true);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      toast.error('Authentication Error', {
+        description: 'Please log in to view purchases.',
+      });
+      router.push('/login');
+      setLoading(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('purchases')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      toast.error('Failed to Fetch Purchases', {
+        description: error.message,
+      });
+    } else {
+      setPurchases(data || []);
+    }
+    setLoading(false);
+  }
+
+  // Fetch vendors for selection
+  async function fetchVendors() {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return;
+    const { data, error } = await supabase
+      .from('vendors')
+      .select('*')
+      .order('name');
+    if (!error) {
+      setVendors(data || []);
+    }
+  }
+
+  // Calculate purchases statistics
+  function calculateStats() {
+    const today = new Date().toDateString();
+    const totalPurchases = purchases.reduce((sum, purchase) => sum + purchase.total, 0);
+    const todayPurchases = purchases
+      .filter(purchase => new Date(purchase.purchase_date).toDateString() === today)
+      .reduce((sum, purchase) => sum + purchase.total, 0);
+    const pendingAmount = purchases
+      .filter(purchase => purchase.status === 'pending')
+      .reduce((sum, purchase) => sum + purchase.total, 0);
+    setStats({
+      totalPurchases,
+      todayPurchases,
+      pendingAmount,
+    });
+  }
+
+  // Handle vendor selection
+  function handleVendorSelect(vendorId: string) {
+    const selectedVendor = vendors.find(v => v.id === vendorId);
+    if (selectedVendor) {
+      setFormData({
+        ...formData,
+        vendor_id: vendorId,
+        vendor_name: selectedVendor.name,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        vendor_id: '',
+        vendor_name: '',
+      });
+    }
+  }
+
   // Validate form data
   function validateForm(): boolean {
-    if (!formData.customer_name?.trim()) {
+    if (!formData.vendor_name?.trim()) {
       toast.error('Validation Error', {
-        description: 'Customer name is required.',
+        description: 'Vendor name is required.',
       });
       return false;
     }
-
     if (!formData.subtotal || formData.subtotal <= 0) {
       toast.error('Validation Error', {
         description: 'Subtotal must be greater than zero.',
       });
       return false;
     }
-
     if (formData.tax !== undefined && formData.tax < 0) {
       toast.error('Validation Error', {
         description: 'Tax cannot be negative.',
       });
       return false;
     }
-
     return true;
   }
 
   // Handle form submission for create/update
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
     if (!validateForm()) return;
-
     setLoading(true);
-    
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       toast.error('Authentication Error', {
@@ -259,97 +220,89 @@ export default function SalesPage() {
       setLoading(false);
       return;
     }
-
-    const saleData = {
-      ...formData,
+    const purchaseData = {
       user_id: user.id,
-      customer_name: formData.customer_name?.trim() || '',
-      customer_id: formData.customer_id || null,
+      vendor_id: formData.vendor_id || null,
+      vendor_name: formData.vendor_name?.trim() || '',
+      purchase_date: formData.purchase_date,
       subtotal: Number(formData.subtotal) || 0,
       tax: Number(formData.tax) || 0,
       total: Number(formData.total) || 0,
+      status: formData.status || 'pending',
     };
-
     if (editingId) {
-      // Update existing sale
+      // Update existing purchase
       const { error } = await supabase
-        .from('sales')
-        .update(saleData)
+        .from('purchases')
+        .update(purchaseData)
         .eq('id', editingId)
         .eq('user_id', user.id);
-
       if (error) {
-        toast.error('Failed to Update Sale', {
+        toast.error('Failed to Update Purchase', {
           description: error.message,
         });
       } else {
-        toast.success('Sale Updated', {
-          description: `Sale for ${formData.customer_name} has been successfully updated.`,
+        toast.success('Purchase Updated', {
+          description: `Purchase from ${formData.vendor_name} has been successfully updated.`,
         });
         resetForm();
-        fetchSales();
+        fetchPurchases();
       }
     } else {
-      // Create new sale
+      // Create new purchase
       const { error } = await supabase
-        .from('sales')
-        .insert(saleData);
-
+        .from('purchases')
+        .insert(purchaseData);
       if (error) {
-        toast.error('Failed to Create Sale', {
+        toast.error('Failed to Create Purchase', {
           description: error.message,
         });
       } else {
-        toast.success('Sale Created', {
-          description: `Sale for ${formData.customer_name} has been successfully created.`,
+        toast.success('Purchase Created', {
+          description: `Purchase from ${formData.vendor_name} has been successfully created.`,
         });
         resetForm();
-        fetchSales();
+        fetchPurchases();
       }
     }
-
     setLoading(false);
   }
 
   // Reset form
   function resetForm() {
     setFormData({
-      customer_id: '',
-      customer_name: '',
-      sale_date: new Date().toISOString().split('T')[0],
+      vendor_id: '',
+      vendor_name: '',
+      purchase_date: new Date().toISOString().split('T')[0],
       subtotal: 0,
       tax: 0,
       total: 0,
-      payment_type: 'cash',
-      status: 'paid',
+      status: 'pending',
     });
     setEditingId(null);
   }
 
   // Handle edit button click
-  function handleEdit(sale: Sale) {
+  function handleEdit(purchase: Purchase) {
     setFormData({
-      customer_id: sale.customer_id || '',
-      customer_name: sale.customer_name,
-      sale_date: sale.sale_date,
-      subtotal: sale.subtotal,
-      tax: sale.tax,
-      total: sale.total,
-      payment_type: sale.payment_type,
-      status: sale.status,
+      vendor_id: purchase.vendor_id || '',
+      vendor_name: purchase.vendor_name,
+      purchase_date: purchase.purchase_date,
+      subtotal: purchase.subtotal,
+      tax: purchase.tax,
+      total: purchase.total,
+      status: purchase.status,
     });
-    setEditingId(sale.id);
+    setEditingId(purchase.id);
   }
 
   // Handle delete with confirmation
   async function handleDelete(id: string) {
-    const sale = sales.find(s => s.id === id);
-    if (!confirm(`Are you sure you want to delete the sale for ${sale?.customer_name || 'this customer'}?`)) {
+    const purchase = purchases.find(p => p.id === id);
+    if (!confirm(`Are you sure you want to delete the purchase from ${purchase?.vendor_name || 'this vendor'}?`)) {
       return;
     }
-
     setLoading(true);
-
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       toast.error('Authentication Error', {
@@ -358,24 +311,21 @@ export default function SalesPage() {
       setLoading(false);
       return;
     }
-
     const { error } = await supabase
-      .from('sales')
+      .from('purchases')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id);
-
     if (error) {
-      toast.error('Failed to Delete Sale', {
+      toast.error('Failed to Delete Purchase', {
         description: error.message,
       });
     } else {
-      toast.success('Sale Deleted', {
-        description: `Sale for ${sale?.customer_name || 'customer'} has been successfully deleted.`,
+      toast.success('Purchase Deleted', {
+        description: `Purchase from ${purchase?.vendor_name || 'vendor'} has been successfully deleted.`,
       });
-      fetchSales();
+      fetchPurchases();
     }
-
     setLoading(false);
   }
 
@@ -383,7 +333,7 @@ export default function SalesPage() {
   function formatCurrency(amount: number): string {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'USD',
     }).format(amount);
   }
 
@@ -392,7 +342,7 @@ export default function SalesPage() {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   }
 
@@ -415,45 +365,25 @@ export default function SalesPage() {
     }
   }
 
-  // Get payment type badge
-  function getPaymentBadge(paymentType: string) {
-    if (paymentType === 'cash') {
-      return (
-        <Badge variant="outline" className="flex items-center gap-1">
-          <Banknote className="h-3 w-3" />
-          Cash
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge variant="outline" className="flex items-center gap-1">
-          <CreditCard className="h-3 w-3" />
-          Credit
-        </Badge>
-      );
-    }
-  }
-
   return (
     <div className="container mx-auto p-4 max-w-7xl">
       <Toaster richColors />
-      
+
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-4">
           <Receipt className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Sales Management</h1>
+          <h1 className="text-3xl font-bold">Purchases Management</h1>
         </div>
-
-        {/* Sales Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        {/* Purchases Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
-                  <p className="text-xl font-bold">{formatCurrency(stats.totalSales)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Purchases</p>
+                  <p className="text-xl font-bold">{formatCurrency(stats.totalPurchases)}</p>
                 </div>
               </div>
             </CardContent>
@@ -463,8 +393,8 @@ export default function SalesPage() {
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Today's Sales</p>
-                  <p className="text-xl font-bold">{formatCurrency(stats.todaySales)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Today's Purchases</p>
+                  <p className="text-xl font-bold">{formatCurrency(stats.todayPurchases)}</p>
                 </div>
               </div>
             </CardContent>
@@ -480,28 +410,6 @@ export default function SalesPage() {
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Banknote className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Cash Sales</p>
-                  <p className="text-xl font-bold">{formatCurrency(stats.cashSales)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-purple-600" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Credit Sales</p>
-                  <p className="text-xl font-bold">{formatCurrency(stats.creditSales)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
@@ -510,52 +418,51 @@ export default function SalesPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {editingId ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            {editingId ? 'Edit Sale' : 'Create New Sale'}
+            {editingId ? 'Edit Purchase' : 'Create New Purchase'}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Customer *</label>
-                <Select 
-                  value={formData.customer_id || 'manual'} 
-                  onValueChange={handleCustomerSelect}
+                <label className="text-sm font-medium">Vendor *</label>
+                <Select
+                  value={formData.vendor_id || 'manual'}
+                  onValueChange={handleVendorSelect}
                   disabled={loading}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select customer or enter manually" />
+                    <SelectValue placeholder="Select vendor or enter manually" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="manual">Enter manually</SelectItem>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name}
+                    {vendors.map((vendor) => (
+                      <SelectItem key={vendor.id} value={vendor.id}>
+                        {vendor.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {(!formData.customer_id || formData.customer_id === 'manual') && (
+                {(!formData.vendor_id || formData.vendor_id === 'manual') && (
                   <Input
-                    placeholder="Customer Name *"
-                    value={formData.customer_name || ''}
-                    onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                    placeholder="Vendor Name *"
+                    value={formData.vendor_name || ''}
+                    onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
                     required
                     disabled={loading}
                   />
                 )}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Sale Date</label>
+                <label className="text-sm font-medium">Purchase Date</label>
                 <Input
                   type="date"
-                  value={formData.sale_date || ''}
-                  onChange={(e) => setFormData({ ...formData, sale_date: e.target.value })}
+                  value={formData.purchase_date || ''}
+                  onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
                   disabled={loading}
                 />
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Subtotal *</label>
@@ -591,45 +498,25 @@ export default function SalesPage() {
                 />
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Payment Type</label>
-                <Select 
-                  value={formData.payment_type || 'cash'} 
-                  onValueChange={(value: 'cash' | 'credit') => setFormData({ ...formData, payment_type: value })}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="credit">Credit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select 
-                  value={formData.status || 'paid'} 
-                  onValueChange={(value: 'paid' | 'pending') => setFormData({ ...formData, status: value })}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select
+                value={formData.status || 'pending'}
+                onValueChange={(value: 'paid' | 'pending') => setFormData({ ...formData, status: value })}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-
             <div className="flex space-x-2">
               <Button type="submit" disabled={loading}>
-                {loading ? 'Processing...' : (editingId ? 'Update Sale' : 'Create Sale')}
+                {loading ? 'Processing...' : (editingId ? 'Update Purchase' : 'Create Purchase')}
               </Button>
               {editingId && (
                 <Button
@@ -647,16 +534,16 @@ export default function SalesPage() {
         </CardContent>
       </Card>
 
-      {/* Sales List */}
+      {/* Purchases List */}
       <Card>
         <CardHeader>
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <CardTitle>Sales ({filteredSales.length})</CardTitle>
+            <CardTitle>Purchases ({filteredPurchases.length})</CardTitle>
             <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search sales..."
+                  placeholder="Search purchases..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -670,16 +557,6 @@ export default function SalesPage() {
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                <SelectTrigger className="w-full sm:w-32">
-                  <SelectValue placeholder="Payment" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Payments</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="credit">Credit</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -701,11 +578,11 @@ export default function SalesPage() {
             <div className="flex justify-center items-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : filteredSales.length === 0 ? (
+          ) : filteredPurchases.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {searchTerm || statusFilter !== 'all' || paymentFilter !== 'all' || dateFilter !== 'all'
-                ? 'No sales found matching your filters.' 
-                : 'No sales yet. Create your first sale above.'
+              {searchTerm || statusFilter !== 'all' || dateFilter !== 'all'
+                ? 'No purchases found matching your filters.'
+                : 'No purchases yet. Create your first purchase above.'
               }
             </div>
           ) : (
@@ -713,32 +590,30 @@ export default function SalesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
+                    <TableHead>Vendor</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Subtotal</TableHead>
                     <TableHead>Tax</TableHead>
                     <TableHead>Total</TableHead>
-                    <TableHead>Payment</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSales.map((sale) => (
-                    <TableRow key={sale.id}>
-                      <TableCell className="font-medium">{sale.customer_name}</TableCell>
-                      <TableCell>{formatDate(sale.sale_date)}</TableCell>
-                      <TableCell>{formatCurrency(sale.subtotal)}</TableCell>
-                      <TableCell>{formatCurrency(sale.tax)}</TableCell>
-                      <TableCell className="font-semibold">{formatCurrency(sale.total)}</TableCell>
-                      <TableCell>{getPaymentBadge(sale.payment_type)}</TableCell>
-                      <TableCell>{getStatusBadge(sale.status)}</TableCell>
+                  {filteredPurchases.map((purchase) => (
+                    <TableRow key={purchase.id}>
+                      <TableCell className="font-medium">{purchase.vendor_name}</TableCell>
+                      <TableCell>{formatDate(purchase.purchase_date)}</TableCell>
+                      <TableCell>{formatCurrency(purchase.subtotal)}</TableCell>
+                      <TableCell>{formatCurrency(purchase.tax)}</TableCell>
+                      <TableCell className="font-semibold">{formatCurrency(purchase.total)}</TableCell>
+                      <TableCell>{getStatusBadge(purchase.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleEdit(sale)}
+                            onClick={() => handleEdit(purchase)}
                             disabled={loading}
                           >
                             <Edit className="h-4 w-4" />
@@ -746,7 +621,7 @@ export default function SalesPage() {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => handleDelete(sale.id)}
+                            onClick={() => handleDelete(purchase.id)}
                             disabled={loading}
                           >
                             <Trash2 className="h-4 w-4" />

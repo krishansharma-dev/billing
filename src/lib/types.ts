@@ -114,7 +114,161 @@ export interface Database {
           updated_at?: string
         }
       }
-
+      sales: {
+        Row: {
+          id: string
+          user_id: string
+          customer_id: string | null
+          customer_name: string
+          sale_date: string
+          subtotal: number
+          tax: number
+          total: number
+          payment_type: 'cash' | 'credit'
+          status: 'paid' | 'pending'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          customer_id?: string | null
+          customer_name: string
+          sale_date?: string
+          subtotal?: number
+          tax?: number
+          total?: number
+          payment_type?: 'cash' | 'credit'
+          status?: 'paid' | 'pending'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          customer_id?: string | null
+          customer_name?: string
+          sale_date?: string
+          subtotal?: number
+          tax?: number
+          total?: number
+          payment_type?: 'cash' | 'credit'
+          status?: 'paid' | 'pending'
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      sale_items: {
+        Row: {
+          id: string
+          sale_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+          price: number
+          total: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          sale_id: string
+          product_id?: string | null
+          product_name: string
+          quantity: number
+          price: number
+          total: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          sale_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          price?: number
+          total?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      purchases: {
+        Row: {
+          id: string
+          user_id: string
+          vendor_id: string | null
+          vendor_name: string
+          purchase_date: string
+          subtotal: number
+          tax: number
+          total: number
+          status: 'paid' | 'pending'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          vendor_id?: string | null
+          vendor_name: string
+          purchase_date?: string
+          subtotal?: number
+          tax?: number
+          total?: number
+          status?: 'paid' | 'pending'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          vendor_id?: string | null
+          vendor_name?: string
+          purchase_date?: string
+          subtotal?: number
+          tax?: number
+          total?: number
+          status?: 'paid' | 'pending'
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      purchase_items: {
+        Row: {
+          id: string
+          purchase_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+          price: number
+          total: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          purchase_id: string
+          product_id?: string | null
+          product_name: string
+          quantity: number
+          price: number
+          total: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          purchase_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          price?: number
+          total?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {}
     Functions: {
